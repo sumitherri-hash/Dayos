@@ -2,65 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAYOS — Personal AI Command Center</title>
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>DAYOS — AI Operating System</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <main class="app">
 
-    <header class="topbar">
-      <div>
-        <div class="brand">DAYOS</div>
-        <div class="subtitle">Personal AI Command Center</div>
-      </div>
-      <div id="systemStatus" class="status">● ONLINE</div>
+  <main id="app">
+
+    <header>
+      <h1>DAYOS</h1>
+      <p>AI Operating System</p>
     </header>
 
-    <section class="core-section">
+    <section id="aiCore">
 
-      <div id="aiCore" class="ai-core">
-        <div class="core-ring ring-one"></div>
-        <div class="core-ring ring-two"></div>
-        <div class="core-ring ring-three"></div>
-        <div class="core-center">
-          <span id="coreState">READY</span>
-        </div>
-      </div>
-
-      <div class="what-now">
-        <div class="eyebrow">WHAT NOW?</div>
-        <h1 id="nextAction">Add your first task.</h1>
-        <p id="nextReason">DAYOS will decide what deserves your attention next.</p>
-        <button id="completeButton" class="primary" hidden>✓ COMPLETE</button>
+      <div>
+        CORE STATUS:
+        <span id="coreState">IDLE</span>
       </div>
 
     </section>
 
-    <section class="input-panel">
-      <input
-        id="taskInput"
-        type="text"
-        placeholder="Tell DAYOS what you need to do..."
-        autocomplete="off"
-      >
+    <section id="workspace">
 
-      <button id="micButton" title="Voice input">🎙</button>
-      <button id="addButton" class="primary">ADD</button>
-    </section>
-
-    <section class="tasks-section">
-      <div class="section-title">
-        <span>YOUR TASKS</span>
-        <span id="taskCount">0</span>
+      <div id="output">
+        DAYOS AI is ready.
       </div>
 
-      <div id="taskList" class="task-list"></div>
+      <div id="taskList"></div>
+
+      <div id="inputArea">
+
+        <input
+          id="userInput"
+          type="text"
+          placeholder="Tell DAYOS what you want to do..."
+          autocomplete="off"
+        >
+
+        <button id="sendButton" onclick="handleUserInput()">
+          Send
+        </button>
+
+      </div>
+
     </section>
 
   </main>
 
+  <!-- DAYOS AI CORE -->
+  <script src="AI.js"></script>
+
+  <!-- DAYOS APP CONTROLLER -->
   <script src="app.js"></script>
+
 </body>
 </html>
