@@ -1,39 +1,5 @@
 /* =========================================================
    DAYOS V1 — APP CONTROLLER
-   app.js
-   ========================================================= */
-
-document.addEventListener("DOMContentLoaded", () => {
-  initializeDAYOSApp();
-});
-
-
-/* =========================================================
-   ELEMENTS
-   ========================================================= */
-
-const UI = {
-  input: () =>
-    document.getElementById("userInput") ||
-    document.getElementById("taskInput") ||
-    document.querySelector("textarea") ||
-    document.querySelector("input[type='text']"),
-
-  output: () =>
-    document.getElementById("output") ||
-    document.getElementById("aiOutput") ||
-    document.getElementById("response"),
-
-  taskList: () =>
-    document.getElementById("taskList"),
-
-  coreState: () =>
-    document.getElementById("coreState")
-};
-
-
-/* =========================================================
-   APP STATE
    ========================================================= */
 
 const DAYOS_APP = {
@@ -44,8 +10,13 @@ const DAYOS_APP = {
 
 
 /* =========================================================
-   INITIALIZATION
+   START
    ========================================================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+  initializeDAYOSApp();
+});
+
 
 function initializeDAYOSApp() {
 
@@ -57,23 +28,43 @@ function initializeDAYOSApp() {
 
   DAYOS_APP.initialized = true;
 
-  console.log("DAYOS App Controller ONLINE");
+  console.log("DAYOS APP ONLINE");
 }
 
 
 /* =========================================================
-   UI CONNECTION
+   UI
    ========================================================= */
+
+function getInput() {
+  return (
+    document.getElementById("userInput") ||
+    document.getElementById("taskInput")
+  );
+}
+
+
+function getOutput() {
+  return (
+    document.getElementById("output") ||
+    document.getElementById("aiOutput") ||
+    document.getElementById("response")
+  );
+}
+
 
 function connectUI() {
 
-  const input = UI.input();
+  const input = getInput();
 
   if (input) {
 
     input.addEventListener("keydown", event => {
 
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
 
         event.preventDefault();
 
@@ -83,109 +74,130 @@ function connectUI() {
     });
   }
 
-  // Automatically connect common buttons
-  const buttons = document.querySelectorAll("button");
+  const button =
+    document.getElementById("sendButton");
 
-  buttons.forEach(button => {
+  if (button) {
 
-    const text = button.textContent
-      .trim()
-      .toLowerCase();
-
-    if (
-      text.includes("send") ||
-      text.includes("ask") ||
-      text.includes("execute") ||
-      text.includes("run")
-    ) {
-
-      button.addEventListener("click", handleUserInput);
-    }
-
-  });
+    button.addEventListener(
+      "click",
+      handleUserInput
+    );
+  }
 }
 
 
 /* =========================================================
-   MAIN AI INTERACTION
+   MAIN INPUT
    ========================================================= */
 
 async function handleUserInput() {
 
-  const input = UI.input();
+  const input = getInput();
 
   if (!input) {
-    console.warn("DAYOS input element not found.");
+
+    console.error(
+      "DAYOS ERROR: userInput not found"
+    );
+
     return;
   }
 
-  const text = input.value.trim();
+  const text =
+    input.value.trim();
 
   if (!text) return;
 
   input.value = "";
 
-  setAppState("UNDERSTANDING");
+  showOutput("DAYOS is thinking...");
 
-  showOutput("Thinking...");
+  setState("LISTENING");
 
   try {
 
-    const result = await askDAYOS(text, {
-      tasks: DAYOS_APP.tasks,
-      plan: DAYOS_APP.currentPlan,
-      app: "DAYOS"
-    });
+    /*
+     * Make absolutely sure AI.js loaded.
+     */
+
+    if (
+      typeof window.askDAYOS !==
+      "function"
+    ) {
+
+      throw new Error(
+        "AI.js did not load correctly. Check that the filename is exactly AI.js."
+      );
+    }
+
+
+    /*
+     * Send request to AI core.
+     */
+
+    const result =
+      await window.askDAYOS(
+        text,
+        {
+          tasks: DAYOS_APP.tasks,
+          plan: DAYOS_APP.currentPlan
+        }
+      );
+
+
+    /*
+     * Process response.
+     */
+
+    if (!result) {
+
+      throw new Error(
+        "AI returned an empty response."
+      );
+    }
 
     processAIResult(result);
 
   } catch (error) {
 
-    console.error("DAYOS AI error:", error);
-
-    showOutput(
-      "I couldn't complete that action. Please try again."
+    console.error(
+      "DAYOS ERROR:",
+      error
     );
 
-    setAppState("IDLE");
+    setState("IDLE");
+
+    showOutput(
+      "DAYOS ERROR:\n\n" +
+      error.message
+    );
   }
 }
 
 
 /* =========================================================
-   PROCESS AI RESULT
+   PROCESS AI RESPONSE
    ========================================================= */
 
 function processAIResult(result) {
 
-  if (!result) {
+  if (result.goal &&
+      Array.isArray(result.steps)) {
 
-    showOutput("No response received.");
-
-    setAppState("IDLE");
-
-    return;
-  }
-
-  // Plan generated
-  if (
-    result.goal &&
-    Array.isArray(result.steps)
-  ) {
-
-    DAYOS_APP.currentPlan = result;
+    DAYOS_APP.currentPlan =
+      result;
 
     saveAppData();
 
     renderPlan(result);
 
-    setAppState("READY");
+    setState("READY");
 
     return;
   }
 
 
-  // Recommendation
   if (result.action) {
 
     const action =
@@ -194,119 +206,131 @@ function processAIResult(result) {
       "Next action";
 
     showOutput(
-      `${action}\n\n${result.reason || ""}`
+      action +
+      "\n\n" +
+      (result.reason || "")
     );
 
-    setAppState("READY");
+    setState("READY");
 
     return;
   }
 
 
-  // Normal AI response
   if (result.response) {
 
-    showOutput(result.response);
-
-    setAppState("READY");
-
-    return;
-  }
-
-
-  // Task response
-  if (result.type === "task") {
-
-    createTask(
-      result.intent?.text || "New Task",
-      result.intent?.priority || "normal"
-    );
-
     showOutput(
-      `Task understood:\n${result.intent?.text || "New Task"}`
+      result.response
     );
 
-    setAppState("READY");
+    setState("READY");
+
+    /*
+     * If AI understood it as a task,
+     * add it to the task list.
+     */
+
+    if (
+      result.type === "task" &&
+      result.intent
+    ) {
+
+      createTask(
+        result.intent.text,
+        result.intent.priority
+      );
+    }
 
     return;
   }
 
 
   showOutput(
-    typeof result === "string"
-      ? result
-      : JSON.stringify(result, null, 2)
+    JSON.stringify(
+      result,
+      null,
+      2
+    )
   );
 
-  setAppState("READY");
+  setState("READY");
 }
 
 
 /* =========================================================
-   TASK CREATION
+   TASKS
    ========================================================= */
 
-function createTask(title, priority = "normal") {
+function createTask(
+  title,
+  priority = "normal"
+) {
 
   const task = {
 
     id:
-      typeof createID === "function"
-        ? createID()
-        : Date.now().toString(),
+      Date.now().toString(36),
 
-    title: title,
+    title,
 
-    priority: priority,
+    priority,
 
     completed: false,
 
-    createdAt: Date.now()
+    createdAt:
+      Date.now()
   };
 
   DAYOS_APP.tasks.push(task);
 
   saveAppData();
+
   renderTasks();
 
   return task;
 }
 
 
-/* =========================================================
-   COMPLETE TASK
-   ========================================================= */
-
 function finishTask(id) {
 
-  const task = DAYOS_APP.tasks.find(
-    item => item.id === id
-  );
+  const task =
+    DAYOS_APP.tasks.find(
+      item => item.id === id
+    );
 
   if (!task) return;
 
   task.completed = true;
 
-  if (typeof completeTask === "function") {
-    completeTask(task);
+  if (
+    typeof window.completeTask ===
+    "function"
+  ) {
+
+    window.completeTask(task);
   }
 
   saveAppData();
+
   renderTasks();
 
   showOutput(
-    `Completed: ${task.title}`
+    "Completed: " +
+    task.title
   );
 }
 
 
 /* =========================================================
-   TASK RENDERING
+   TASK UI
    ========================================================= */
 
 function renderTasks() {
 
-  const container = UI.taskList();
+  const container =
+    document.getElementById(
+      "taskList"
+    );
 
   if (!container) return;
 
@@ -314,9 +338,11 @@ function renderTasks() {
 
   DAYOS_APP.tasks.forEach(task => {
 
-    const item = document.createElement("div");
+    const item =
+      document.createElement("div");
 
-    item.className = "dayos-task";
+    item.className =
+      "dayos-task";
 
     item.innerHTML = `
       <span>
@@ -332,93 +358,104 @@ function renderTasks() {
     `;
 
     container.appendChild(item);
-
   });
 }
 
 
 /* =========================================================
-   PLAN RENDERING
+   PLAN UI
    ========================================================= */
 
 function renderPlan(plan) {
 
-  let output = `PLAN: ${plan.goal}\n\n`;
+  let text =
+    "PLAN: " +
+    plan.goal +
+    "\n\n";
 
-  plan.steps.forEach((step, index) => {
+  plan.steps.forEach(
+    (step, index) => {
 
-    output +=
-      `${index + 1}. ${step.title}\n`;
+      text +=
+        `${index + 1}. ${step.title}\n`;
 
-  });
+    }
+  );
 
-  showOutput(output);
+  showOutput(text);
 }
 
 
 /* =========================================================
-   AI OUTPUT
+   OUTPUT
    ========================================================= */
 
 function showOutput(message) {
 
-  const output = UI.output();
+  const output =
+    getOutput();
 
   if (!output) {
 
-    console.log("DAYOS:", message);
+    console.log(
+      "DAYOS:",
+      message
+    );
 
     return;
   }
 
-  output.textContent = message;
+  output.textContent =
+    String(message);
 }
 
 
 /* =========================================================
-   CORE STATE
+   STATE
    ========================================================= */
 
-function setAppState(state) {
+function setState(state) {
 
-  if (typeof setAICoreState === "function") {
+  if (
+    typeof window.setAICoreState ===
+    "function"
+  ) {
 
-    setAICoreState(state);
+    window.setAICoreState(
+      state
+    );
 
     return;
   }
 
-  const stateElement = UI.coreState();
+  const element =
+    document.getElementById(
+      "coreState"
+    );
 
-  if (stateElement) {
-    stateElement.textContent = state;
+  if (element) {
+    element.textContent =
+      state;
   }
 }
 
 
 /* =========================================================
-   LOCAL STORAGE
+   STORAGE
    ========================================================= */
 
 function saveAppData() {
 
-  try {
+  localStorage.setItem(
+    "DAYOS_APP_DATA",
+    JSON.stringify({
+      tasks:
+        DAYOS_APP.tasks,
 
-    localStorage.setItem(
-      "DAYOS_APP_DATA",
-      JSON.stringify({
-        tasks: DAYOS_APP.tasks,
-        currentPlan: DAYOS_APP.currentPlan
-      })
-    );
-
-  } catch (error) {
-
-    console.warn(
-      "DAYOS app data could not be saved:",
-      error
-    );
-  }
+      currentPlan:
+        DAYOS_APP.currentPlan
+    })
+  );
 }
 
 
@@ -427,11 +464,14 @@ function loadAppData() {
   try {
 
     const saved =
-      localStorage.getItem("DAYOS_APP_DATA");
+      localStorage.getItem(
+        "DAYOS_APP_DATA"
+      );
 
     if (!saved) return;
 
-    const data = JSON.parse(saved);
+    const data =
+      JSON.parse(saved);
 
     DAYOS_APP.tasks =
       Array.isArray(data.tasks)
@@ -443,8 +483,8 @@ function loadAppData() {
 
   } catch (error) {
 
-    console.warn(
-      "DAYOS app data could not be loaded:",
+    console.error(
+      "Storage error:",
       error
     );
   }
@@ -467,12 +507,20 @@ function escapeHTML(value) {
 
 
 /* =========================================================
-   PUBLIC API
+   GLOBALS
    ========================================================= */
 
-window.DAYOS_APP = DAYOS_APP;
+window.DAYOS_APP =
+  DAYOS_APP;
 
-window.handleUserInput = handleUserInput;
-window.createTask = createTask;
-window.finishTask = finishTask;
-window.renderTasks = renderTasks;
+window.handleUserInput =
+  handleUserInput;
+
+window.createTask =
+  createTask;
+
+window.finishTask =
+  finishTask;
+
+window.renderTasks =
+  renderTasks;
